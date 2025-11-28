@@ -1,0 +1,676 @@
+import std::meta::comptime;
+import std::meta::types;
+import std::format;
+import std::vector;
+import std::utils;
+import std::unicode;
+import std::bit;
+import std::math;
+import std::string;
+import std::libc::types;
+import std::libc::stdio;
+
+struct split_by_iterator_t
+{
+	._begin:   ?*u8;
+	._end:     ?*u8;
+	._str_end: ?*u8;
+	._split_char: char;
+}
+
+struct split_by_iterator_end_t
+{
+	._dummy: bool;
+}
+
+export function begin(range: split_by_iterator_t) -> split_by_iterator_t
+{
+	return range;
+}
+
+export function end(range: #split_by_iterator_t) -> split_by_iterator_end_t
+{
+	return split_by_iterator_end_t();
+}
+
+export operator == (lhs: #split_by_iterator_t, _rhs: #split_by_iterator_end_t) -> bool
+{
+	return lhs._begin == lhs._str_end;
+}
+
+export operator == (_lhs: #split_by_iterator_end_t, rhs: #split_by_iterator_t) -> bool
+{
+	return rhs._begin == rhs._str_end;
+}
+
+export operator != (lhs: #split_by_iterator_t, rhs: #split_by_iterator_end_t) -> bool
+{
+	return !(lhs == rhs);
+}
+
+export operator != (lhs: #split_by_iterator_end_t, rhs: #split_by_iterator_t) -> bool
+{
+	return !(lhs == rhs);
+}
+
+function find_char(it: mut ?*u8, end: ?*u8, c: char) -> ?*u8
+{
+	while (it != end && *it != c as u8)
+	{
+		++it;
+	}
+	return it;
+}
+
+export operator ++ (it: &mut split_by_iterator_t) -> &mut split_by_iterator_t
+{
+	if (it._begin == it._str_end)
+	{
+		return it;
+	}
+	else if (it._end == it._str_end)
+	{
+		it._begin = it._end;
+		return it;
+	}
+	else
+	{
+		let next_begin = it._end + 1;
+		let next_end = find_char(next_begin, it._str_end, it._split_char);
+		it._begin = next_begin;
+		it._end = next_end;
+		return it;
+	}
+}
+
+export operator * (it: #split_by_iterator_t) -> str
+{
+	return __builtin_str_from_ptrs(it._begin, it._end);
+}
+
+struct split_by_str_iterator_t
+{
+	._begin:   ?*u8;
+	._end:     ?*u8;
+	._str_end: ?*u8;
+	._split_str: str;
+}
+
+struct split_by_str_iterator_end_t
+{
+	._dummy: bool;
+}
+
+export function begin(range: split_by_str_iterator_t) -> split_by_str_iterator_t
+{
+	return range;
+}
+
+export function end(range: #split_by_str_iterator_t) -> split_by_str_iterator_end_t
+{
+	return split_by_str_iterator_end_t();
+}
+
+export operator == (lhs: #split_by_str_iterator_t, _rhs: #split_by_str_iterator_end_t) -> bool
+{
+	return lhs._begin == lhs._str_end;
+}
+
+export operator == (_lhs: #split_by_str_iterator_end_t, rhs: #split_by_str_iterator_t) -> bool
+{
+	return rhs._begin == rhs._str_end;
+}
+
+export operator != (lhs: #split_by_str_iterator_t, rhs: #split_by_str_iterator_end_t) -> bool
+{
+	return !(lhs == rhs);
+}
+
+export operator != (lhs: #split_by_str_iterator_end_t, rhs: #split_by_str_iterator_t) -> bool
+{
+	return !(lhs == rhs);
+}
+
+function find_str(it: mut ?*u8, end: ?*u8, s: str) -> ?*u8
+{
+	while (it != end && !__builtin_str_from_ptrs(it, end).starts_with(s))
+	{
+		++it;
+	}
+	return it;
+}
+
+export operator ++ (it: &mut split_by_str_iterator_t) -> &mut split_by_str_iterator_t
+{
+	if (it._begin == it._str_end)
+	{
+		return it;
+	}
+	else if (it._end == it._str_end)
+	{
+		it._begin = it._end;
+		return it;
+	}
+	else
+	{
+		let next_begin = it._end + it._split_str.size();
+		let next_end = find_str(next_begin, it._str_end, it._split_str);
+		it._begin = next_begin;
+		it._end = next_end;
+		return it;
+	}
+}
+
+export operator * (it: #split_by_str_iterator_t) -> str
+{
+	return __builtin_str_from_ptrs(it._begin, it._end);
+}
+
+export function split_by(s: str, split_char: char) -> split_by_iterator_t
+{
+	std::assert(split_char <= '\x7f');
+	let begin = s.begin_ptr();
+	let end   = s.end_ptr();
+	let split_end = find_char(begin, end, split_char);
+	return split_by_iterator_t[ begin, split_end, end, split_char ];
+}
+
+export function split_by(s: str, split_str: str) -> split_by_str_iterator_t
+{
+	let begin = s.begin_ptr();
+	let end   = s.end_ptr();
+	let split_end = find_str(begin, end, split_str);
+	return split_by_str_iterator_t[ begin, split_end, end, split_str ];
+}
+
+export function by_line(s: str) -> split_by_iterator_t
+{
+	return split_by(s, '\n');
+}
+
+export function split(s: str, split_str: str) -> [ str, str ]
+{
+	let it = s.find(split_str);
+	let result_first = __builtin_str_from_ptrs(s.begin_ptr(), it);
+	return if (it == s.end_ptr()) {
+		[ result_first, "" ]
+	} else {
+		let result_second = __builtin_str_from_ptrs(it + split_str.size(), s.end_ptr());
+		[ result_first, result_second ]
+	};
+}
+
+export function split(s: str, split_char: char) -> [ str, str ]
+{
+	let it = s.find(split_char);
+	let result_first = __builtin_str_from_ptrs(s.begin_ptr(), it);
+
+	return if (it == s.end_ptr()) {
+		[ result_first, "" ]
+	} else {
+		let size = if (split_char as u32 <= 0x7f) {
+			1
+		} else {
+			std::encode_char_utf8(split_char)[1]
+		};
+		let result_second = __builtin_str_from_ptrs(it + size, s.end_ptr());
+		[ result_first, result_second ]
+	};
+}
+
+function is_whitespace(c: u8) -> bool
+{
+	let c = c as char;
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+export function trim(s: str) -> str
+{
+	mut begin = s.begin_ptr();
+	mut end = s.end_ptr();
+	while (begin != end && is_whitespace(*begin))
+	{
+		++begin;
+	}
+	while (end != begin && is_whitespace(*(end - 1)))
+	{
+		--end;
+	}
+	return __builtin_str_from_ptrs(begin, end);
+}
+
+function is_signed_integer(T: typename) -> bool
+{
+	return T == i8 || T == i16 || T == i32 || T == i64;
+}
+
+function is_unsigned_integer(T: typename) -> bool
+{
+	return T == u8 || T == u16 || T == u32 || T == u64;
+}
+
+function is_integer(T: typename) -> bool
+{
+	return is_signed_integer(T) || is_unsigned_integer(T);
+}
+
+export function parse_int(T: typename, s: str) -> ((if (!is_integer(T)) { unreachable } else {}), T)
+{
+	mut result = 0 as T;
+
+	mut it = s.begin_ptr();
+	let end = s.end_ptr();
+
+	let _sign = is_signed_integer(T) && {
+		let sign = *it == '-' as u8;
+		if (sign)
+		{
+			++it;
+		}
+		sign
+	};
+
+	for (; it != end; ++it)
+	{
+		let c = *it as char;
+		if (c < '0' || c > '9')
+		{
+			break;
+		}
+		result *= 10 as T;
+		result += (c - '0') as T;
+	}
+
+	if consteval (is_signed_integer(T))
+	{
+		return if (_sign) { -result } else { result };
+	}
+	else
+	{
+		return result;
+	}
+}
+
+export function collect(##range) -> std::vector<std::meta::remove_mut(std::meta::remove_reference(typeof *range.begin()))>
+{
+	mut result = std::vector<std::meta::remove_mut(std::meta::remove_reference(typeof *range.begin()))>();
+	for (let #val in range)
+	{
+		result.push_back(val);
+	}
+	return move result;
+}
+
+export struct reverse_iterator_t<It: typename>
+{
+	.it: It;
+}
+
+export operator ++ (it: &mut reverse_iterator_t) -> typeof it
+{
+	--it.it;
+}
+
+export operator -- (it: &mut reverse_iterator_t) -> typeof it
+{
+	++it.it;
+}
+
+export operator == (lhs: #reverse_iterator_t, rhs: #reverse_iterator_t) -> bool
+{
+	return lhs.it == rhs.it;
+}
+
+export operator != (lhs: #reverse_iterator_t, rhs: #reverse_iterator_t) -> bool
+{
+	return lhs.it != rhs.it;
+}
+
+export operator * (it: #reverse_iterator_t) -> typeof *it.it
+{
+	mut copy = it.it;
+	--copy;
+	return *copy;
+}
+
+struct reverse_range_t<Range: typename>
+{
+	._range: Range;
+}
+
+export function begin(range: #reverse_range_t) -> reverse_iterator_t<typeof range._range.begin()>
+{
+	static_assert(typeof range._range.begin() == typeof range._range.end());
+	return reverse_iterator_t<typeof range._range.begin()>[ range._range.end() ];
+}
+
+export function end(range: #reverse_range_t) -> reverse_iterator_t<typeof range._range.begin()>
+{
+	static_assert(typeof range._range.begin() == typeof range._range.end());
+	return reverse_iterator_t<typeof range._range.begin()>[ range._range.begin() ];
+}
+
+export function reversed(range) -> reverse_range_t<typeof range>
+{
+	return reverse_range_t<typeof range>[ range ];
+}
+
+export function find(s: str, to_find: str) -> ?*u8
+{
+	mut it = s.begin_ptr();
+	let end = s.end_ptr();
+	while (it != end && !__builtin_str_from_ptrs(it, end).starts_with(to_find))
+	{
+		++it;
+	}
+	return it;
+}
+
+export function find(s: str, c: char) -> ?*u8
+{
+	if (c as u32 <= 0x7f)
+	{
+		let c = c as u8;
+		mut it = s.begin_ptr();
+		let end = s.end_ptr();
+		while (it != end && *it != c)
+		{
+			++it;
+		}
+		return it;
+	}
+	else
+	{
+		let [buffer, size] = std::encode_char_utf8(c);
+		let to_find = __builtin_str_from_ptrs(buffer.begin(), buffer.begin() + size);
+		return find(s, to_find);
+	}
+}
+
+struct chars_iterator_t
+{
+	._it: ?*u8;
+}
+
+export operator == (lhs: chars_iterator_t, rhs: chars_iterator_t) -> bool
+{
+	return lhs._it == rhs._it;
+}
+
+export operator != (lhs: chars_iterator_t, rhs: chars_iterator_t) -> bool
+{
+	return lhs._it != rhs._it;
+}
+
+export operator ++ (it: &mut chars_iterator_t) -> &mut chars_iterator_t
+{
+	let c = *it._it;
+	if (c <= 0b0111'1111)
+	{
+		it._it += 1;
+	}
+	else
+	{
+		it._it += std::clz(~c);
+	}
+
+	return it;
+}
+
+export operator * (it: chars_iterator_t) -> char
+{
+	let c = *it._it;
+	return if (c <= 0b0111'1111) {
+		c as char
+	} else if (c <= 0b1101'1111) {
+		let full_char =
+			((*(it._it + 0) & 0b0001'1111) << 6)
+			| ((*(it._it + 1) & 0b0011'1111) << 0);
+		full_char as char
+	} else if (c <= 0b1110'1111) {
+		let full_char =
+			((*(it._it + 0) & 0b0000'1111) << 12)
+			| ((*(it._it + 1) & 0b0011'1111) << 6)
+			| ((*(it._it + 2) & 0b0011'1111) << 0);
+		full_char as char
+	} else {
+		let full_char =
+			((*(it._it + 0) & 0b0000'0111) << 18)
+			| ((*(it._it + 1) & 0b0011'1111) << 12)
+			| ((*(it._it + 2) & 0b0011'1111) << 6)
+			| ((*(it._it + 3) & 0b0011'1111) << 0);
+		full_char as char
+	};
+}
+
+struct chars_range_t
+{
+	._s: str;
+}
+
+export function begin(range: chars_range_t) -> chars_iterator_t
+{
+	return chars_iterator_t[ range._s.begin_ptr() ];
+}
+
+export function end(range: chars_range_t) -> chars_iterator_t
+{
+	return chars_iterator_t[ range._s.end_ptr() ];
+}
+
+export function chars(s: str) -> chars_range_t
+{
+	return chars_range_t[ s ];
+}
+
+export function min_max(values: [: auto])
+	-> [
+		std::meta::remove_mut(std::meta::remove_reference(typeof values[0])),
+		std::meta::remove_mut(std::meta::remove_reference(typeof values[0])),
+	]
+{
+	std::assert(values.size() > 0);
+	mut min_it = values.begin();
+	mut max_it = values.begin();
+
+	for (mut it = values.begin() + 1; it < values.end(); ++it)
+	{
+		if (*it < *min_it)
+		{
+			min_it = it;
+		}
+		if (*it > *max_it)
+		{
+			max_it = it;
+		}
+	}
+
+	return [ *min_it, *max_it ];
+}
+
+export function min(values: [: auto]) -> std::meta::remove_mut(std::meta::remove_reference(typeof values[0]))
+{
+	std::assert(values.size() > 0);
+	mut min_it = values.begin();
+
+	for (mut it = values.begin() + 1; it < values.end(); ++it)
+	{
+		if (*it < *min_it)
+		{
+			min_it = it;
+		}
+	}
+
+	return *min_it;
+}
+
+export function max(values: [: auto]) -> std::meta::remove_mut(std::meta::remove_reference(typeof values[0]))
+{
+	std::assert(values.size() > 0);
+	mut max_it = values.begin();
+
+	for (mut it = values.begin() + 1; it < values.end(); ++it)
+	{
+		if (*it > *max_it)
+		{
+			max_it = it;
+		}
+	}
+
+	return *max_it;
+}
+
+export function count(##range) -> usize
+{
+	mut result = 0uz;
+	mut it = range.begin();
+	let end = range.end();
+	for (; it != end; ++it)
+	{
+		result += 1;
+	}
+	return result;
+}
+
+struct sliding_window_iterator_t<T: typename>
+{
+	._window_begin: ?*T;
+	._window_end: ?*T;
+	._range_end: ?*T;
+
+	type _value_type = T;
+}
+
+struct sliding_window_iterator_end_t
+{
+	._dummy: bool;
+}
+
+export function begin(it: sliding_window_iterator_t) -> typeof it
+{
+	return it;
+}
+
+export function end(it: #sliding_window_iterator_t) -> sliding_window_iterator_end_t
+{
+	return sliding_window_iterator_end_t();
+}
+
+export operator == (lhs: #sliding_window_iterator_t, _rhs: #sliding_window_iterator_end_t) -> bool
+{
+	return lhs._window_begin == lhs._range_end;
+}
+
+export operator == (_lhs: #sliding_window_iterator_end_t, rhs: #sliding_window_iterator_t) -> bool
+{
+	return rhs._window_begin == rhs._range_end;
+}
+
+export operator != (lhs: #sliding_window_iterator_t, rhs: #sliding_window_iterator_end_t) -> bool
+{
+	return !(lhs == rhs);
+}
+
+export operator != (lhs: #sliding_window_iterator_end_t, rhs: #sliding_window_iterator_t) -> bool
+{
+	return !(lhs == rhs);
+}
+
+export operator ++ (it: &mut sliding_window_iterator_t) -> typeof it
+{
+	if (it._window_begin != it._range_end)
+	{
+		++it._window_begin;
+	}
+	if (it._window_end != it._range_end)
+	{
+		++it._window_end;
+	}
+}
+
+export operator * (it: #sliding_window_iterator_t) -> [: (typeof it)._value_type]
+{
+	type T = (typeof it)._value_type;
+	if consteval (std::meta::is_mut(T))
+	{
+		return __builtin_slice_from_mut_ptrs(it._window_begin, it._window_end);
+	}
+	else
+	{
+		return __builtin_slice_from_ptrs(it._window_begin, it._window_end);
+	}
+}
+
+export function sliding_window(slice: [: auto], n: usize) -> sliding_window_iterator_t<std::meta::slice_value_type(typeof slice)>
+{
+	return sliding_window_iterator_t<std::meta::slice_value_type(typeof slice)>[
+		slice.begin(),
+		slice.begin() + std::min(n, slice.size()),
+		slice.end(),
+	];
+}
+
+export function sliding_window(slice: [: auto], n: usize) -> sliding_window_iterator_t<std::meta::slice_value_type(typeof slice)>
+{
+	return sliding_window_iterator_t<std::meta::slice_value_type(typeof slice)>[
+		slice.begin(),
+		slice.begin() + std::min(n, slice.size()),
+		slice.end(),
+	];
+}
+
+export function bytes(s: str) -> [: u8]
+{
+	return __builtin_slice_from_ptrs(s.begin_ptr(), s.end_ptr());
+}
+
+export function read_file(filename: str) -> std::string
+{
+	let filename_c_str = std::malloc(std::libc::char, filename.size() + 1);
+	defer std::free(filename_c_str);
+
+	static_assert(sizeof std::libc::char == sizeof u8);
+	std::memcpy(filename_c_str, filename.begin_ptr(), filename.size());
+	*(filename_c_str + filename.size()) = 0; // null terminator
+
+	let file = std::libc::fopen(filename_c_str, "rt\x00".begin_ptr());
+	if (file == null)
+	{
+		return std::string();
+	}
+	defer std::libc::fclose(file);
+
+	if (std::libc::fseek(file, 0, std::libc::SEEK_END()) != 0)
+	{
+		return std::string();
+	}
+
+	let ssize = std::libc::ftell(file);
+	// early return in case of empty file
+	if (ssize == 0)
+	{
+		return std::string();
+	}
+
+	if (std::libc::fseek(file, 0, std::libc::SEEK_SET()) != 0)
+	{
+		return std::string();
+	}
+
+	let size = if (ssize < 0) { 0 } else { ssize as usize };
+	let buffer = std::malloc(u8, size);
+	defer std::free(buffer);
+
+	// size includes '\r's, but opening the file in text mode discards them
+	// so bytes_read will be less than size, and there's no need to filter
+	// carriage returns
+	let bytes_read = std::libc::fread(buffer, 1, size, file);
+	if (std::libc::ferror(file) != 0)
+	{
+		return std::string();
+	}
+
+	let buffer_str = __builtin_str_from_ptrs(buffer, buffer + bytes_read);
+
+	return std::string(buffer_str);
+}
