@@ -1,0 +1,76 @@
+import std::format;
+import std::vector;
+import common;
+
+function mod100(n: i32) -> i32
+{
+	let n = n % 100;
+	return if (n < 0) { n + 100 } else { n };
+}
+
+function part1(input: [: str]) -> i32
+{
+	let mut dial_pos = 50;
+	let mut password = 0;
+
+	for (let line in input)
+	{
+		if (line.size() == 0)
+		{
+			continue;
+		}
+		let begin = line.begin_ptr();
+		let is_right = *begin as char == 'R';
+		let num = __builtin_str_from_ptrs(begin + 1, line.end_ptr());
+		let num = parse_int(i32, num);
+		dial_pos += if (is_right) { num } else { -num };
+
+		dial_pos = mod100(dial_pos);
+		if (dial_pos == 0)
+		{
+			password += 1;
+		}
+	}
+
+	return password;
+}
+
+function part2(input: [: str]) -> i32
+{
+	let mut dial_pos = 50;
+	let mut password = 0;
+
+	for (let line in input)
+	{
+		if (line.size() == 0)
+		{
+			continue;
+		}
+		let begin = line.begin_ptr();
+		let is_right = *begin as char == 'R';
+		let num = __builtin_str_from_ptrs(begin + 1, line.end_ptr());
+		let num = parse_int(i32, num);
+		password += num / 100;
+		let num = num % 100;
+
+		let new_dial_pos = if (is_right) { dial_pos + num } else { dial_pos - num };
+		if (new_dial_pos % 100 == 0 || (dial_pos > 0 && new_dial_pos < 0) || new_dial_pos > 100)
+		{
+			password += 1;
+		}
+		dial_pos = mod100(new_dial_pos);
+	}
+
+	return password;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
