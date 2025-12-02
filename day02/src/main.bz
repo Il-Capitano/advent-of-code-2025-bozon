@@ -1,0 +1,101 @@
+import std::format;
+import std::vector;
+import std::string;
+import common;
+
+function is_invalid_id_part1(id: u64) -> bool
+{
+	let id = std::format("{}", id);
+	if (id.size() % 2 != 0)
+	{
+		return false;
+	}
+
+	let first_half = __builtin_str_from_ptrs(id.as_str().begin_ptr(), id.as_str().begin_ptr() + id.size() / 2);
+	return id.ends_with(first_half);
+}
+
+function part1(input: str) -> u64
+{
+	let mut id_sum = 0u64;
+	for (let id_range in input.split_by(','))
+	{
+		let [min_id, max_id] = id_range.split('-');
+		let min_id = parse_int(u64, min_id);
+		let max_id = parse_int(u64, max_id);
+
+		for (let id in min_id..=max_id)
+		{
+			if (is_invalid_id_part1(id))
+			{
+				id_sum += id;
+			}
+		}
+	}
+	return id_sum;
+}
+
+function is_invalid_id_part2(id: u64) -> bool
+{
+	let id = std::format("{}", id);
+	let id = id.as_str();
+	if (id.size() < 2)
+	{
+		return false;
+	}
+
+	for (let pattern_size in 1..=(id.size() / 2))
+	{
+		if (id.size() % pattern_size != 0)
+		{
+			continue;
+		}
+		let pattern = __builtin_str_from_ptrs(id.begin_ptr(), id.begin_ptr() + pattern_size);
+		let mut valid = false;
+		for (let mut j = pattern_size; j < id.size(); j += pattern_size)
+		{
+			let part = __builtin_str_from_ptrs(id.begin_ptr() + j, id.begin_ptr() + j + pattern_size);
+			if (part != pattern)
+			{
+				valid = true;
+				break;
+			}
+		}
+		if (!valid)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function part2(input: str) -> u64
+{
+	let mut id_sum = 0u64;
+	for (let id_range in input.split_by(','))
+	{
+		let [min_id, max_id] = id_range.split('-');
+		let min_id = parse_int(u64, min_id);
+		let max_id = parse_int(u64, max_id);
+
+		for (let id in min_id..=max_id)
+		{
+			if (is_invalid_id_part2(id))
+			{
+				id_sum += id;
+			}
+		}
+	}
+	return id_sum;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+
+	let part1_result = part1(input.as_str());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_str());
+	std::print("part 2: {}\n", part2_result);
+}
