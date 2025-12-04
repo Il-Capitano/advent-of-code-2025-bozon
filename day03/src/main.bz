@@ -1,0 +1,100 @@
+import std::format;
+import std::vector;
+import std::math;
+import common;
+
+function part1(input: [: str]) -> u32
+{
+	let mut total_joltage = 0u32;
+	for (let line in input)
+	{
+		let mut joltages = std::vector<u8>();
+		for (let c in line.chars())
+		{
+			joltages.push_back((c - '0') as u8);
+		}
+
+		let max_joltage = joltages.as_slice()[..joltages.size() - 1].max();
+		let mut max_bank_joltage = 0u32;
+		for (let i in 0..joltages.size())
+		{
+			if (joltages[i] != max_joltage)
+			{
+				continue;
+			}
+
+			for (let j in (i + 1)..joltages.size())
+			{
+				max_bank_joltage = std::max(max_bank_joltage, 10 * joltages[i] + joltages[j]);
+			}
+		}
+		total_joltage += max_bank_joltage;
+	}
+	return total_joltage;
+}
+
+function get_max_joltage(joltages: [: u8], remaining_digits: usize, current_joltage: u64) -> u64
+{
+	if (joltages.size() < remaining_digits)
+	{
+		return 0;
+	}
+
+	if (joltages.size() == 0 || remaining_digits == 0)
+	{
+		return current_joltage;
+	}
+
+	if (joltages.size() == remaining_digits)
+	{
+		let mut result = current_joltage;
+		for (let joltage in joltages)
+		{
+			result = 10 * result + joltage;
+		}
+		return result;
+	}
+
+	let first_digit_joltages = joltages[..joltages.size() - (remaining_digits - 1)];
+	let max_joltage = first_digit_joltages.max();
+	let mut result = 0u64;
+	for (let i in 0..first_digit_joltages.size())
+	{
+		if (first_digit_joltages[i] != max_joltage)
+		{
+			continue;
+		}
+
+		result = std::max(
+			result,
+			get_max_joltage(joltages[i + 1..], remaining_digits - 1, 10 * current_joltage + first_digit_joltages[i])
+		);
+	}
+	return result;
+}
+
+function part2(input: [: str]) -> u64
+{
+	let mut total_joltage = 0u64;
+	for (let line in input)
+	{
+		let mut joltages = std::vector<u8>();
+		for (let c in line.chars())
+		{
+			joltages.push_back((c - '0') as u8);
+		}
+		total_joltage += get_max_joltage(joltages.as_slice(), 12, 0);
+	}
+	return total_joltage;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
