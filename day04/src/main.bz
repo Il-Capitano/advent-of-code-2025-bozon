@@ -1,0 +1,123 @@
+import std::format;
+import std::vector;
+import std::utils;
+import common;
+
+enum cell: u8
+{
+	empty,
+	paper_roll,
+}
+
+function is_roll_accessible(map: &std::vector<std::vector<cell> >, i: usize, j: usize) -> bool
+{
+	let i_start = if (i == 0) { 0 } else { i - 1 };
+	let i_end = if (i == map.size() - 1) { i } else { i + 1 };
+	let j_start = if (j == 0) { 0 } else { j - 1 };
+	let j_end = if (j == map[0].size() - 1) { j } else { j + 1 };
+
+	let mut adjacent_count = 0;
+	for (let i_adjacent in i_start..=i_end)
+	{
+		for (let j_adjacent in j_start..=j_end)
+		{
+			if (i == i_adjacent && j == j_adjacent)
+			{
+				continue;
+			}
+
+			if (map[i_adjacent][j_adjacent] == .paper_roll)
+			{
+				adjacent_count += 1;
+			}
+		}
+	}
+
+	return adjacent_count < 4;
+}
+
+function part1(input: [: str]) -> i32
+{
+	let mut map = std::vector<std::vector<cell> >();
+	for (let line in input)
+	{
+		let &mut map_line = map.emplace_back();
+		for (let c in line.chars())
+		{
+			map_line.push_back(if (c == '@') { .paper_roll } else { .empty });
+		}
+	}
+
+	let mut accessible_rolls = 0;
+	for (let i in 0..map.size())
+	{
+		for (let j in 0..map[i].size())
+		{
+			if (map[i][j] != .paper_roll)
+			{
+				continue;
+			}
+
+			if (is_roll_accessible(map, i, j))
+			{
+				accessible_rolls += 1;
+			}
+		}
+	}
+
+	return accessible_rolls;
+}
+
+function part2(input: [: str]) -> i32
+{
+	let mut map = std::vector<std::vector<cell> >();
+	for (let line in input)
+	{
+		let &mut map_line = map.emplace_back();
+		for (let c in line.chars())
+		{
+			map_line.push_back(if (c == '@') { .paper_roll } else { .empty });
+		}
+	}
+
+	let mut removed_paper_roll = true;
+	let mut total_removed_count = 0;
+	while (removed_paper_roll)
+	{
+		removed_paper_roll = false;
+		let mut new_map = map;
+
+		for (let i in 0..map.size())
+		{
+			for (let j in 0..map[i].size())
+			{
+				if (map[i][j] != .paper_roll)
+				{
+					continue;
+				}
+
+				if (is_roll_accessible(map, i, j))
+				{
+					new_map[i][j] = .empty;
+					removed_paper_roll = true;
+					total_removed_count += 1;
+				}
+			}
+		}
+
+		map = move new_map;
+	}
+
+	return total_removed_count;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
