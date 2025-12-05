@@ -1,0 +1,119 @@
+import std::format;
+import std::vector;
+import std::math;
+import common;
+
+function is_fresh(id: u64, fresh_ids: [: [u64, u64]]) -> bool
+{
+	for (let [first, last] in fresh_ids)
+	{
+		if (id >= first && id <= last)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function part1(input: [: str]) -> i32
+{
+	let mut line_it = input.begin();
+	let line_end = input.end();
+
+	let mut fresh_ids = std::vector<[u64, u64]>();
+	for (; line_it != line_end; ++line_it)
+	{
+		let line = *line_it;
+		if (line == "")
+		{
+			++line_it;
+			break;
+		}
+
+		let [first, last] = line.split('-');
+		fresh_ids.push_back([ parse_int(u64, first), parse_int(u64, last) ]);
+	}
+
+	let mut inventory = std::vector<u64>();
+	for (; line_it != line_end; ++line_it)
+	{
+		let line = *line_it;
+		inventory.push_back(parse_int(u64, line));
+	}
+
+	let mut fresh_count = 0;
+	for (let id in inventory)
+	{
+		if (is_fresh(id, fresh_ids.as_slice()))
+		{
+			fresh_count += 1;
+		}
+	}
+
+	return fresh_count;
+}
+
+function part2(input: [: str]) -> u64
+{
+	let mut fresh_ids = std::vector<[u64, u64]>();
+	for (let line in input)
+	{
+		if (line == "")
+		{
+			break;
+		}
+
+		let [first, last] = line.split('-');
+		fresh_ids.push_back([ parse_int(u64, first), parse_int(u64, last) ]);
+	}
+
+	let mut processed = std::vector<bool>();
+	processed.resize(fresh_ids.size());
+
+	let mut total_count = 0u64;
+	for (let i in 0..fresh_ids.size())
+	{
+		if (processed[i])
+		{
+			continue;
+		}
+
+		let mut range = fresh_ids[i];
+		let mut changed = true;
+		while (changed)
+		{
+			changed = false;
+			for (let j in 0..fresh_ids.size())
+			{
+				if (processed[j])
+				{
+					continue;
+				}
+
+				let [first, last] = fresh_ids[j];
+				if (range[0] <= last && range[1] >= first)
+				{
+					range[0] = std::min(range[0], first);
+					range[1] = std::max(range[1], last);
+					changed = true;
+					processed[j] = true;
+				}
+			}
+		}
+		total_count += range[1] - range[0] + 1;
+	}
+
+	return total_count;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
