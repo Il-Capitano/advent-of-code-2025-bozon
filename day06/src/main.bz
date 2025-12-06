@@ -1,0 +1,146 @@
+import std::format;
+import std::vector;
+import std::utils;
+import common;
+
+function reduce_add(nums: [: u64]) -> u64
+{
+	let mut result = 0u64;
+	for (let n in nums)
+	{
+		result += n;
+	}
+	return result;
+}
+
+function reduce_mul(nums: [: u64]) -> u64
+{
+	let mut result = 1u64;
+	for (let n in nums)
+	{
+		result *= n;
+	}
+	return result;
+}
+
+function part1(input: [: str]) -> u64
+{
+	let mut problems = std::vector<std::vector<u64> >();
+	let mut grand_total = 0u64;
+	for (let line in input)
+	{
+		let mut problem_index = 0uz;
+		for (let s in line.split_by(' '))
+		{
+			if (s == "")
+			{
+				continue;
+			}
+			defer { problem_index += 1; };
+
+			if (problems.size() == problem_index)
+			{
+				problems.emplace_back();
+			}
+
+			if (s == "+")
+			{
+				grand_total += reduce_add(problems[problem_index].as_slice());
+				continue;
+			}
+			else if (s == "*")
+			{
+				grand_total += reduce_mul(problems[problem_index].as_slice());
+				continue;
+			}
+
+			let n = parse_int(u64, s);
+			problems[problem_index].push_back(n);
+		}
+	}
+	return grand_total;
+}
+
+function part2(input: [: str]) -> u64
+{
+	let mut problems = std::vector<std::vector<u64> >();
+	let mut problem_tmp = std::vector<u64>();
+	let mut line_index = 0uz;
+	while (true)
+	{
+		defer { line_index += 1; };
+		let mut parsed_any = false;
+		let mut parsed_number = false;
+		let mut n = 0u64;
+		for (let line in input)
+		{
+			let line = line.bytes();
+			if (line_index >= line.size())
+			{
+				continue;
+			}
+			parsed_any = true;
+
+			let c = line[line_index] as char;
+			if (!(c >= '0' && c <= '9'))
+			{
+				continue;
+			}
+
+			parsed_number = true;
+			n *= 10;
+			n += (c - '0') as u64;
+		}
+
+		if (!parsed_any)
+		{
+			if (problem_tmp.size() != 0)
+			{
+				std::swap(problems.emplace_back(), problem_tmp);
+			}
+			break;
+		}
+
+		if (parsed_number)
+		{
+			problem_tmp.push_back(n);
+		}
+		else
+		{
+			std::swap(problems.emplace_back(), problem_tmp);
+		}
+	}
+
+	let mut grand_total = 0u64;
+	let mut problem_index = 0uz;
+	for (let s in input[input.size() - 1].split_by(' '))
+	{
+		if (s == "")
+		{
+			continue;
+		}
+
+		defer { problem_index += 1; };
+		if (s == "+")
+		{
+			grand_total += reduce_add(problems[problem_index].as_slice());
+		}
+		else if (s == "*")
+		{
+			grand_total += reduce_mul(problems[problem_index].as_slice());
+		}
+	}
+
+	return grand_total;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
