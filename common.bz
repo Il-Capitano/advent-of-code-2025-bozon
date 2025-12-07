@@ -610,12 +610,66 @@ export function sliding_window(slice: [: auto], n: usize) -> sliding_window_iter
 	];
 }
 
-export function sliding_window(slice: [: auto], n: usize) -> sliding_window_iterator_t<std::meta::slice_value_type(typeof slice)>
+struct enumerate_iterator_t<B: typename, E: typename>
 {
-	return sliding_window_iterator_t<std::meta::slice_value_type(typeof slice)>[
-		slice.begin(),
-		slice.begin() + std::min(n, slice.size()),
-		slice.end(),
+	._range_begin: B;
+	._range_end: E;
+	._index: usize;
+}
+
+struct enumerate_iterator_end_t
+{}
+
+export function begin(it: enumerate_iterator_t) -> typeof it
+{
+	return move it;
+}
+
+export function end(it: #enumerate_iterator_t) -> enumerate_iterator_end_t
+{
+	return enumerate_iterator_end_t();
+}
+
+export operator == (lhs: #enumerate_iterator_t, _rhs: enumerate_iterator_end_t) -> bool
+{
+	return lhs._range_begin == lhs._range_end;
+}
+
+export operator == (_lhs: enumerate_iterator_end_t, rhs: #enumerate_iterator_t) -> bool
+{
+	return rhs._range_begin == rhs._range_end;
+}
+
+export operator != (lhs: #enumerate_iterator_t, _rhs: enumerate_iterator_end_t) -> bool
+{
+	return lhs._range_begin != lhs._range_end;
+}
+
+export operator != (_lhs: enumerate_iterator_end_t, rhs: #enumerate_iterator_t) -> bool
+{
+	return rhs._range_begin != rhs._range_end;
+}
+
+export operator ++ (it: &mut enumerate_iterator_t) -> typeof it
+{
+	if (it._range_begin != it._range_end)
+	{
+		++it._range_begin;
+		++it._index;
+	}
+}
+
+export operator * (it: #enumerate_iterator_t) -> [usize, typeof *it._range_begin]
+{
+	return [it._index, *it._range_begin];
+}
+
+export function enumerate(range: ##auto) -> enumerate_iterator_t<typeof range.begin(), typeof range.end()>
+{
+	return enumerate_iterator_t<typeof range.begin(), typeof range.end()>[
+		range.begin(),
+		range.end(),
+		0
 	];
 }
 
