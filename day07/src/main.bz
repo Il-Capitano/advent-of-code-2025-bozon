@@ -1,0 +1,119 @@
+import std::format;
+import std::vector;
+import common;
+
+enum cell
+{
+	empty,
+	splitter,
+	tachyon_beam,
+}
+
+function part1(input: [: str]) -> i32
+{
+	let mut manifold = std::vector<std::vector<cell> >();
+	let mut start_pos = [0uz, 0uz];
+	for (let [i, &line] in input.enumerate())
+	{
+		let &mut manifold_line = manifold.emplace_back();
+		for (let [j, c] in line.chars().enumerate())
+		{
+			if (c == 'S') {
+				start_pos = [i, j];
+			}
+			manifold_line.push_back(switch (c) {
+				'S', '.' => .empty,
+				'^' => .splitter,
+				else => unreachable,
+			});
+		}
+	}
+
+	if (start_pos[0] != 0) unreachable;
+	manifold[start_pos[0], start_pos[1]] = .tachyon_beam;
+
+	let mut split_count = 0;
+	for (let i in 1..manifold.size())
+	{
+		for (let j in 0..manifold[i].size())
+		{
+			if (manifold[i, j] == .splitter && manifold[i - 1, j] == .tachyon_beam)
+			{
+				manifold[i, j - 1] = .tachyon_beam;
+				manifold[i, j + 1] = .tachyon_beam;
+				split_count += 1;
+			}
+			else if (manifold[i - 1, j] == .tachyon_beam)
+			{
+				manifold[i, j] = .tachyon_beam;
+			}
+		}
+	}
+	return split_count;
+}
+
+function part2(input: [: str]) -> u64
+{
+	let mut manifold = std::vector<std::vector<cell> >();
+	let mut start_pos = [0uz, 0uz];
+	for (let [i, &line] in input.enumerate())
+	{
+		let &mut manifold_line = manifold.emplace_back();
+		for (let [j, c] in line.chars().enumerate())
+		{
+			if (c == 'S') {
+				start_pos = [i, j];
+			}
+			manifold_line.push_back(switch (c) {
+				'S', '.' => .empty,
+				'^' => .splitter,
+				else => unreachable,
+			});
+		}
+	}
+
+	if (start_pos[0] != 0) unreachable;
+
+	let mut timeline_counts = std::vector<std::vector<u64> >();
+	timeline_counts.resize(manifold.size());
+	for (let [i, &mut line] in timeline_counts.enumerate())
+	{
+		line.resize(manifold[i].size());
+	}
+	timeline_counts[start_pos[0], start_pos[1]] = 1;
+
+	for (let i in 1..manifold.size())
+	{
+		for (let j in 0..manifold[i].size())
+		{
+			if (manifold[i, j] == .splitter)
+			{
+				timeline_counts[i, j - 1] += timeline_counts[i - 1, j];
+				timeline_counts[i, j + 1] += timeline_counts[i - 1, j];
+			}
+			else
+			{
+				timeline_counts[i, j] += timeline_counts[i - 1, j];
+			}
+		}
+	}
+
+	let mut total_timeline_count = 0u64;
+	for (let count in timeline_counts[timeline_counts.size() - 1])
+	{
+		total_timeline_count += count;
+	}
+
+	return total_timeline_count;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
