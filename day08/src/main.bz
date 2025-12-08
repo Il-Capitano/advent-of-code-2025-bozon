@@ -1,0 +1,211 @@
+import std::format;
+import std::vector;
+import std::utils;
+import common;
+
+struct vec3
+{
+	.x: i64;
+	.y: i64;
+	.z: i64;
+}
+
+function distance_squared(a: vec3, b: vec3) -> i64
+{
+	let dx = (a.x - b.x);
+	let dy = (a.y - b.y);
+	let dz = (a.z - b.z);
+	return dx * dx + dy * dy + dz * dz;
+}
+
+function partition(pairs: [: mut [usize, usize, i64]]) -> usize
+{
+	if (pairs.size() <= 1)
+	{
+		return 0;
+	}
+
+	let pivot_size = pairs[pairs.size() - 1, 2];
+	let mut i = 0uz;
+	for (let j in 0..pairs.size() - 1)
+	{
+		if (pairs[j, 2] <= pivot_size)
+		{
+			std::swap(pairs[i], pairs[j]);
+			i += 1;
+		}
+	}
+
+	std::swap(pairs[i], pairs[pairs.size() - 1]);
+	return i;
+}
+
+function sort_pairs(pairs: [: mut [usize, usize, i64]])
+{
+	if (pairs.size() <= 1)
+	{
+		return;
+	}
+
+	let pivot = partition(pairs);
+	sort_pairs(pairs[0..pivot]);
+	sort_pairs(pairs[(pivot + 1)..]);
+}
+
+function connect_boxes(i: usize, j: usize, circuits: &mut std::vector<std::vector<usize> >)
+{
+	let mut i_circuit: ?*mut std::vector<usize> = null;
+	let mut j_circuit: ?*mut std::vector<usize> = null;
+	for (let &mut circuit in circuits)
+	{
+		for (let index in circuit)
+		{
+			if (index == i)
+			{
+				i_circuit = &circuit;
+			}
+			if (index == j)
+			{
+				j_circuit = &circuit;
+			}
+		}
+	}
+
+	if (i_circuit == null && j_circuit == null)
+	{
+		let &mut new_circuit = circuits.emplace_back();
+		new_circuit.push_back(i);
+		new_circuit.push_back(j);
+	}
+	else if (i_circuit == j_circuit)
+	{
+		// nothing
+	}
+	else if (i_circuit == null)
+	{
+		j_circuit->push_back(i);
+	}
+	else if (j_circuit == null)
+	{
+		i_circuit->push_back(j);
+	}
+	else
+	{
+		for (let index in *j_circuit)
+		{
+			i_circuit->push_back(index);
+		}
+		let circuit_index = (j_circuit - circuits.begin()) as usize;
+		for (let i in circuit_index..circuits.size() - 1)
+		{
+			std::swap(circuits[i], circuits[i + 1]);
+		}
+		circuits.resize(circuits.size() - 1);
+	}
+}
+
+function max_sizes(vecs: &std::vector<std::vector<usize> >) -> [3: usize]
+{
+	let mut result: [3: usize] = [1, 1, 1];
+	for (let &vec in vecs)
+	{
+		if (vec.size() <= result[2])
+		{
+			continue;
+		}
+
+		result[2] = vec.size();
+		if (result[2] > result[1])
+		{
+			std::swap(result[1], result[2]);
+			if (result[1] > result[0])
+			{
+				std::swap(result[0], result[1]);
+			}
+		}
+	}
+
+	return result;
+}
+
+function part1(input: [: str]) -> usize
+{
+	let mut positions = std::vector<vec3>();
+	for (let line in input)
+	{
+		let [x, line] = line.split(',');
+		let [y, z] = line.split(',');
+		positions.push_back(vec3[
+			parse_int(i64, x),
+			parse_int(i64, y),
+			parse_int(i64, z),
+		]);
+	}
+
+	let mut pairs = std::vector<[usize, usize, i64]>();
+	for (let i in 0..positions.size())
+	{
+		for (let j in (i + 1)..positions.size())
+		{
+			pairs.push_back([i, j, distance_squared(positions[i], positions[j])]);
+		}
+	}
+	sort_pairs(pairs.as_slice());
+
+	let mut circuits = std::vector<std::vector<usize> >();
+	for (let [i, j, _] in pairs.as_slice()[..1000])
+	{
+		connect_boxes(i, j, circuits);
+	}
+
+	let [a, b, c] = max_sizes(circuits);
+	return a * b * c;
+}
+
+function part2(input: [: str]) -> i64
+{
+	let mut positions = std::vector<vec3>();
+	for (let line in input)
+	{
+		let [x, line] = line.split(',');
+		let [y, z] = line.split(',');
+		positions.push_back(vec3[
+			parse_int(i64, x),
+			parse_int(i64, y),
+			parse_int(i64, z),
+		]);
+	}
+
+	let mut pairs = std::vector<[usize, usize, i64]>();
+	for (let i in 0..positions.size())
+	{
+		for (let j in (i + 1)..positions.size())
+		{
+			pairs.push_back([i, j, distance_squared(positions[i], positions[j])]);
+		}
+	}
+	sort_pairs(pairs.as_slice());
+
+	let mut circuits = std::vector<std::vector<usize> >();
+	for (let [i, j, _] in pairs)
+	{
+		connect_boxes(i, j, circuits);
+		if (circuits.size() == 1 && circuits[0].size() == positions.size())
+		{
+			return positions[i].x * positions[j].x;
+		}
+	}
+
+	return 0;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
