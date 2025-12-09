@@ -1,0 +1,138 @@
+import std::format;
+import std::vector;
+import std::math;
+import common;
+
+function part1(input: [: str]) -> u64
+{
+	let mut red_tile_locations = std::vector<[u64, u64]>();
+	for (let line in input)
+	{
+		let [x, y] = line.split(',');
+		red_tile_locations.push_back([parse_int(u64, x), parse_int(u64, y)]);
+	}
+
+	let mut max_area = 0u64;
+	for (let i in 0..red_tile_locations.size())
+	{
+		for (let j in (i + 1)..red_tile_locations.size())
+		{
+			let [xi, yi] = red_tile_locations[i];
+			let [xj, yj] = red_tile_locations[j];
+			let xa = std::min(xi, xj);
+			let xb = std::max(xi, xj);
+			let ya = std::min(yi, yj);
+			let yb = std::max(yi, yj);
+			let area = (xb - xa + 1) * (yb - ya + 1);
+			max_area = std::max(max_area, area);
+		}
+	}
+	return max_area;
+}
+
+function part2(input: [: str]) -> u64
+{
+	let mut red_tile_locations = std::vector<[u64, u64]>();
+	for (let line in input)
+	{
+		let [x, y] = line.split(',');
+		red_tile_locations.push_back([parse_int(u64, x), parse_int(u64, y)]);
+	}
+
+	let mut total_turns = 0;
+	for (let j in 0..red_tile_locations.size())
+	{
+		let i = if (j == 0) { red_tile_locations.size() - 1 } else { j - 1 };
+		let k = if (j == red_tile_locations.size() - 1) { 0 } else { j + 1 };
+
+		let [xi, yi] = red_tile_locations[i];
+		let [_xj, yj] = red_tile_locations[j];
+		let [xk, yk] = red_tile_locations[k];
+		if (xi == xk || yi == yk) unreachable;
+
+		let mid_above = yj > std::min(yi, yk);
+		let going_right = xk > xi;
+
+		if (mid_above != going_right)
+		{
+			total_turns += 1;
+		}
+		else
+		{
+			total_turns -= 1;
+		}
+	}
+	let is_left_handed = total_turns > 0;
+
+	let mut max_area = 0u64;
+	for (let i in 0..red_tile_locations.size())
+	{
+		for (let j in (i + 1)..red_tile_locations.size())
+		{
+			let [xi, yi] = red_tile_locations[i];
+			let [xj, yj] = red_tile_locations[j];
+			let xa = std::min(xi, xj);
+			let xb = std::max(xi, xj);
+			let ya = std::min(yi, yj);
+			let yb = std::max(yi, yj);
+
+			let mut does_any_green_cross = false;
+			for (let i in 0..red_tile_locations.size())
+			{
+				let j = if (i == red_tile_locations.size() - 1) { 0 } else { i + 1 };
+				let [xi, yi] = red_tile_locations[i];
+				let [xj, yj] = red_tile_locations[j];
+				let xn = std::min(xi, xj);
+				let yn = std::min(yi, yj);
+				let xm = std::max(xi, xj);
+				let ym = std::max(yi, yj);
+
+				if (xn != xm && yn > ya && yn < yb && xn < xb && xm > xa)
+				{
+					does_any_green_cross = true;
+					break;
+				}
+				else if (yn != ym && xn > xa && xn < xb && yn < yb && ym > ya)
+				{
+					does_any_green_cross = true;
+					break;
+				}
+			}
+			if (does_any_green_cross)
+			{
+				continue;
+			}
+
+			let n = if (i == 0) { red_tile_locations.size() - 1 } else { i - 1 };
+			let m = if (i == red_tile_locations.size() - 1) { 0 } else { i + 1 };
+			let [xn, yn] = red_tile_locations[n];
+			let [xm, ym] = red_tile_locations[m];
+			let mid_above = yi > std::min(yn, ym);
+			let going_right = xm > xn;
+			let is_left_turn = mid_above != going_right;
+
+			let turn_hugging_corner =
+				((xi == xa && std::min(xn, xm) == xa) || (xi == xb && std::max(xn, xm) == xb))
+				&& ((yi == ya && std::min(yn, ym) == ya) || (yi == yb && std::max(yn, ym) == yb));
+			if (!is_left_handed ^^ is_left_turn ^^ turn_hugging_corner)
+			{
+				continue;
+			}
+
+			let area = (xb - xa + 1) * (yb - ya + 1);
+			max_area = std::max(max_area, area);
+		}
+	}
+	return max_area;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
