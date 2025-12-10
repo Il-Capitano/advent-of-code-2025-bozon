@@ -1,0 +1,347 @@
+import std::format;
+import std::vector;
+import std::math;
+import std::utils;
+import common;
+
+struct lights_state_t
+{
+	.lights: std::vector<bool>;
+	.pressed_buttons: std::vector<usize>;
+}
+
+function contains(v: &std::vector<usize>, n: usize) -> bool
+{
+	for (let value in v)
+	{
+		if (value == n)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+function get_min_number_of_presses_for_lights(lights: &std::vector<bool>, buttons: &std::vector<std::vector<usize> >) -> usize
+{
+	let mut states = std::vector<lights_state_t>();
+	let &mut initial_state = states.emplace_back();
+	initial_state.lights.resize(lights.size());
+
+	while (true)
+	{
+		for (let &state in states)
+		{
+			if (state.lights.as_slice() == lights.as_slice())
+			{
+				return state.pressed_buttons.size();
+			}
+		}
+
+		let mut new_states = std::vector<lights_state_t>();
+		for (let &state in states)
+		{
+			for (let [i, &button] in buttons.enumerate())
+			{
+				if (state.pressed_buttons.contains(i))
+				{
+					continue;
+				}
+
+				let mut new_state = state;
+				new_state.pressed_buttons.push_back(i);
+				for (let index in button)
+				{
+					new_state.lights[index] ^= true;
+				}
+				new_states.push_back(move new_state);
+			}
+		}
+		states = move new_states;
+	}
+
+	return 0;
+}
+
+function part1(input: [: str]) -> usize
+{
+	let mut total_min_presses = 0uz;
+	for (let line in input)
+	{
+		let [lights_str, line] = line.split("] ");
+		let [_, lights_str] = lights_str.split('[');
+
+		let mut lights = std::vector<bool>();
+		for (let c in lights_str.chars())
+		{
+			lights.push_back(c == '#');
+		}
+
+		let mut buttons = std::vector<std::vector<usize> >();
+		for (let button in line.split_by(' '))
+		{
+			if (!button.starts_with("("))
+			{
+				continue;
+			}
+
+			let [_, button] = button.split('(');
+			let [button, _] = button.split(')');
+			let &mut indices = buttons.emplace_back();
+			for (let index in button.split_by(','))
+			{
+				indices.push_back(parse_int(usize, index));
+			}
+		}
+		total_min_presses += get_min_number_of_presses_for_lights(lights, buttons);
+	}
+	return total_min_presses;
+}
+
+function gcd(a: mut i64, b: mut i64) -> i64
+{
+	while (b != 0)
+	{
+		let t = b;
+		b = a % b;
+		a = t;
+	}
+	return a;
+}
+
+function sum(a: [: i64]) -> i64
+{
+	let mut result = 0i64;
+	for (let n in a)
+	{
+		result += n;
+	}
+	return result;
+}
+
+function solve_diag(buttons: [: [: i64]], button_presses: [: mut i64], joltages: [: i64], max_button_presses: [: i64], i: usize) -> i64
+{
+	let m = button_presses.size();
+	if (buttons[i, i] == 0)
+	{
+		let mut check_joltage = 0i64;
+		for (let j in i..m)
+		{
+			check_joltage += button_presses[j] * buttons[i, j];
+		}
+		if (check_joltage != joltages[i])
+		{
+			return i64.max;
+		}
+
+		if (i == 0)
+		{
+			return button_presses.sum();
+		}
+
+		let mut result = i64.max;
+		for (let presses in 0..=max_button_presses[i])
+		{
+			button_presses[i] = presses;
+			result = std::min(result, solve_diag(buttons, button_presses, joltages, max_button_presses, i - 1));
+		}
+		return result;
+	}
+
+	let mut joltage = joltages[i];
+	for (let j in (i + 1)..m)
+	{
+		joltage -= button_presses[j] * buttons[i, j];
+	}
+
+	if (joltage % buttons[i, i] != 0)
+	{
+		return i64.max;
+	}
+	let result = joltage / buttons[i, i];
+	if (result < 0)
+	{
+		return i64.max;
+	}
+	button_presses[i] = result;
+
+	if (i == 0)
+	{
+		return button_presses.sum();
+	}
+	else
+	{
+		return solve_diag(buttons, button_presses, joltages, max_button_presses, i - 1);
+	}
+}
+
+function solve(buttons: [: mut [: mut i64]], button_presses: [: mut i64], joltages: [: mut i64], max_button_presses: [: i64]) -> i64
+{
+	let n = buttons.size();
+	if (n == 0 || n != joltages.size())
+	{
+		unreachable;
+	}
+	let m = buttons[0].size();
+	if (m != button_presses.size())
+	{
+		unreachable;
+	}
+
+	for (let j in 0..std::min(n, m))
+	{
+		let mut non_zero_index = j;
+		for (let i in j..n)
+		{
+			if (buttons[i, j] != 0)
+			{
+				non_zero_index = i;
+				break;
+			}
+		}
+		if (buttons[non_zero_index, j] == 0)
+		{
+			continue;
+		}
+		std::swap(buttons[j], buttons[non_zero_index]);
+		std::swap(joltages[j], joltages[non_zero_index]);
+
+		for (let i in (j + 1)..n)
+		{
+			if (buttons[i, j] == 0)
+			{
+				continue;
+			}
+
+			let gcd = gcd(std::abs(buttons[i, j]), std::abs(buttons[j, j]));
+			let prefactor = buttons[j, j] / gcd;
+			let factor = buttons[i, j] / gcd;
+			for (let k in j..m)
+			{
+				buttons[i, k] = prefactor * buttons[i, k] - factor * buttons[j, k];
+			}
+			joltages[i] = prefactor * joltages[i] - factor * joltages[j];
+		}
+	}
+
+	if (n >= m)
+	{
+		let result = solve_diag(buttons, button_presses, joltages, max_button_presses, m - 1);
+		if (result == i64.max)
+		{
+			unreachable;
+		}
+		return result;
+	}
+	else
+	{
+		unreachable;
+	}
+
+	return 0;
+}
+
+function get_min_number_of_presses_for_joltages(joltages: &std::vector<i32>, buttons: [: std::vector<usize>]) -> i64
+{
+	if (buttons.size() == 0)
+	{
+		unreachable;
+	}
+
+	let n = joltages.size();
+	let m = buttons.size();
+
+	let mut buffers = std::vector<std::vector<i64> >();
+	let &mut joltage_vector = buffers.emplace_back();
+	joltage_vector.resize(std::max(n, m));
+	for (let i in 0..joltages.size())
+	{
+		joltage_vector[i] = joltages[i];
+	}
+	let joltage_vector = joltage_vector.as_slice();
+
+	let &mut button_presses = buffers.emplace_back();
+	button_presses.resize(m);
+	let button_presses = button_presses.as_slice();
+
+	let &mut max_button_presses = buffers.emplace_back();
+	max_button_presses.resize(m);
+	let max_button_presses = max_button_presses.as_slice();
+	for (let [i, &button] in buttons.enumerate())
+	{
+		let mut min_joltage = i64.max;
+		for (let index in button)
+		{
+			min_joltage = std::min(min_joltage, joltages[index] as i64);
+		}
+		max_button_presses[i] = min_joltage;
+	}
+
+	let size = buffers.size();
+	buffers.resize(buffers.size() + std::max(n, m));
+	let mut buttons_matrix = std::vector<[: mut i64]>();
+	for (let i in size..buffers.size())
+	{
+		let &mut row = buffers[i];
+		row.resize(m);
+		buttons_matrix.push_back(row.as_slice());
+	}
+	let buttons_matrix = buttons_matrix.as_slice();
+
+	for (let j in 0..buttons.size())
+	{
+		for (let i in buttons[j])
+		{
+			buttons_matrix[i, j] = 1;
+		}
+	}
+
+	return solve(buttons_matrix, button_presses, joltage_vector, max_button_presses);
+}
+
+function part2(input: [: str]) -> i64
+{
+	let mut total_min_presses = 0i64;
+	for (let line in input)
+	{
+		let [_, line] = line.split(' ');
+
+		let mut buttons = std::vector<std::vector<usize> >();
+		let mut joltages = std::vector<i32>();
+		for (let s in line.split_by(' '))
+		{
+			if (s.starts_with("{"))
+			{
+				let [_, joltage] = s.split('{');
+				let [joltage, _] = joltage.split('}');
+				for (let joltage in joltage.split_by(','))
+				{
+					joltages.push_back(parse_int(i32, joltage));
+				}
+				break;
+			}
+
+			let [_, button] = s.split('(');
+			let [button, _] = button.split(')');
+			let &mut indices = buttons.emplace_back();
+			for (let index in button.split_by(','))
+			{
+				indices.push_back(parse_int(usize, index));
+			}
+		}
+
+		total_min_presses += get_min_number_of_presses_for_joltages(joltages, buttons.as_slice());
+	}
+	return total_min_presses;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
