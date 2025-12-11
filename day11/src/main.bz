@@ -1,0 +1,133 @@
+import std::format;
+import std::vector;
+import common;
+
+function id(device: str) -> u32
+{
+	let mut id = 0u32;
+	consteval letter_count = ('z' - 'a' + 1) as u32;
+	for (let c in device.chars())
+	{
+		if (!(c >= 'a' && c <= 'z'))
+		{
+			unreachable;
+		}
+		id *= letter_count;
+		id += (c - 'a') as u32;
+	}
+	return id;
+}
+
+function find_device_index(devices: &std::vector<[u32, std::vector<u32>]>, id: u32) -> ?usize
+{
+	for (let i in 0..devices.size())
+	{
+		if (devices[i, 0] == id)
+		{
+			return i;
+		}
+	}
+	return null;
+}
+
+function get_path_count(
+	devices: &std::vector<[u32, std::vector<u32>]>,
+	device_id: u32,
+	end_id: u32,
+	calculated_path_counts: &mut std::vector<?u64>,
+) -> u64
+{
+	if (device_id == end_id)
+	{
+		return 1;
+	}
+
+	let i = devices.find_device_index(device_id);
+	if (i == null)
+	{
+		return 0;
+	}
+	let i = i.get_value();
+
+	if (calculated_path_counts[i] != null)
+	{
+		return calculated_path_counts[i].get_value();
+	}
+
+	let mut path_count = 0u64;
+	for (let output in devices[i, 1])
+	{
+		path_count += get_path_count(devices, output, end_id, calculated_path_counts);
+	}
+	calculated_path_counts[i] = path_count;
+	return path_count;
+}
+
+function get_path_count(devices: &std::vector<[u32, std::vector<u32>]>, from: u32, to: u32) -> u64
+{
+	let mut calculated_path_counts = std::vector<?u64>();
+	calculated_path_counts.resize(devices.size());
+	return get_path_count(devices, from, to, calculated_path_counts);
+}
+
+function part1(input: [: str]) -> usize
+{
+	let mut devices = std::vector<[u32, std::vector<u32>]>();
+	for (let line in input)
+	{
+		let [device, outputs] = line.split(": ");
+		let device = id(device);
+		devices.push_back([device, std::vector<u32>()]);
+		let &mut device = devices[devices.size() - 1];
+		for (let output in outputs.split_by(' '))
+		{
+			device[1].push_back(id(output));
+		}
+	}
+
+	consteval you_id = id("you");
+	consteval out_id = id("out");
+
+	return get_path_count(devices, you_id, out_id);
+}
+
+function part2(input: [: str]) -> usize
+{
+	let mut devices = std::vector<[u32, std::vector<u32>]>();
+	for (let line in input)
+	{
+		let [device, outputs] = line.split(": ");
+		let device = id(device);
+		devices.push_back([device, std::vector<u32>()]);
+		let &mut device = devices[devices.size() - 1];
+		for (let output in outputs.split_by(' '))
+		{
+			device[1].push_back(id(output));
+		}
+	}
+
+	consteval svr_id = id("svr");
+	consteval dac_id = id("dac");
+	consteval fft_id = id("fft");
+	consteval out_id = id("out");
+
+	let svr_to_fft = get_path_count(devices, svr_id, fft_id);
+	let svr_to_dac = get_path_count(devices, svr_id, dac_id);
+	let fft_to_dac = get_path_count(devices, fft_id, dac_id);
+	let dac_to_fft = get_path_count(devices, dac_id, fft_id);
+	let fft_to_out = get_path_count(devices, fft_id, out_id);
+	let dac_to_out = get_path_count(devices, dac_id, out_id);
+
+	return svr_to_fft * fft_to_dac * dac_to_out + svr_to_dac * dac_to_fft * fft_to_out;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	let part2_result = part2(input.as_slice());
+	std::print("part 2: {}\n", part2_result);
+}
