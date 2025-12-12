@@ -1,0 +1,293 @@
+import std::format;
+import std::vector;
+import common;
+
+enum orientation
+{
+	north,
+	east,
+	south,
+	west,
+}
+
+consteval all_orientations: [??: orientation] = [
+	.north,
+	.east,
+	.south,
+	.west,
+];
+
+function translate_indices(mut i: usize, mut j: usize, n: usize, o: orientation, flipped: bool) -> [usize, usize]
+{
+	if (flipped)
+	{
+		j = n - 1 - j;
+	}
+
+	return switch (o) {
+		.north => [i, j],
+		.east => [j, n - 1 - i],
+		.south => [n - 1 - i, n - 1 - j],
+		.west => [n - 1 - j, i],
+	};
+}
+
+type shape_t = std::vector<std::vector<bool> >;
+
+function fit_present(tree: &mut shape_t, present: &shape_t, i: usize, j: usize, o: orientation, flipped: bool) -> bool
+{
+	let n = tree.size();
+	if (n == 0)
+	{
+		return false;
+	}
+	let m = tree[0].size();
+	let present_size = present.size();
+
+	if (n - i < present_size || m - j < present_size)
+	{
+		return false;
+	}
+
+	for (let k in 0..present_size)
+	{
+		for (let l in 0..present_size)
+		{
+			let [k, l] = translate_indices(k, l, present_size, o, flipped);
+			if (present[k, l] && tree[i + k, j + l])
+			{
+				return false;
+			}
+		}
+	}
+
+	for (let k in 0..present_size)
+	{
+		for (let l in 0..present_size)
+		{
+			let [k, l] = translate_indices(k, l, present_size, o, flipped);
+			if (present[k, l])
+			{
+				tree[i + k, j + l] = true;
+			}
+		}
+	}
+	return true;
+}
+
+function remove_present(tree: &mut shape_t, present: &shape_t, i: usize, j: usize, o: orientation, flipped: bool)
+{
+	let n = tree.size();
+	if (n == 0)
+	{
+		unreachable;
+	}
+	let m = tree[0].size();
+	let present_size = present.size();
+
+	if (n - i < present_size || m - j < present_size)
+	{
+		unreachable;
+	}
+
+	for (let k in 0..present_size)
+	{
+		for (let l in 0..present_size)
+		{
+			let [k, l] = translate_indices(k, l, present_size, o, flipped);
+			if (present[k, l])
+			{
+				tree[i + k, j + l] = false;
+			}
+		}
+	}
+}
+
+function fit_all_presents(tree: &mut shape_t, presents: [: shape_t], needed_presents: [: mut usize], start_i: usize, start_j: usize) -> bool
+{
+	let mut total_remaining_size = 0uz;
+	for (let i in 0..needed_presents.size())
+	{
+		let mut present_size = 0uz;
+		for (let &row in presents[i])
+		{
+			for (let cell in row)
+			{
+				present_size += if (cell) { 1 } else { 0 };
+			}
+		}
+		total_remaining_size += needed_presents[i] * present_size;
+	}
+	if (total_remaining_size == 0)
+	{
+		return true;
+	}
+
+	let n = tree.size();
+	if (n == 0)
+	{
+		unreachable;
+	}
+	let m = tree[0].size();
+
+	if ((n - start_i) * m - start_j < total_remaining_size)
+	{
+		return false;
+	}
+
+	for (let i in start_i..n)
+	{
+		for (let j in 0..m)
+		{
+			if (i == start_i && j < start_j)
+			{
+				continue;
+			}
+
+			for (let next_present in 0..needed_presents.size())
+			{
+				if (needed_presents[next_present] == 0)
+				{
+					continue;
+				}
+
+				for (let o in all_orientations)
+				{
+					if (fit_present(tree, presents[next_present], i, j, o, false))
+					{
+						needed_presents[next_present] -= 1;
+						defer {
+							needed_presents[next_present] += 1;
+							remove_present(tree, presents[next_present], i, j, o, false)
+						};
+
+						if (fit_all_presents(tree, presents, needed_presents, i, j))
+						{
+							return true;
+						}
+					}
+					if (fit_present(tree, presents[next_present], i, j, o, true))
+					{
+						needed_presents[next_present] -= 1;
+						defer {
+							needed_presents[next_present] += 1;
+							remove_present(tree, presents[next_present], i, j, o, true)
+						};
+
+						if (fit_all_presents(tree, presents, needed_presents, i, j))
+						{
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+function part1(input: [: str]) -> i32
+{
+	let mut it = input.begin();
+	let end = input.end();
+
+	let mut shapes = std::vector<shape_t>();
+	while (it != end)
+	{
+		let line = *it;
+		let [_index, rest] = line.split(':');
+		if (rest != "")
+		{
+			// start of the christmas tree shapes
+			break;
+		}
+		++it;
+
+		let &mut shape = shapes.emplace_back();
+		while (it != end)
+		{
+			defer ++it;
+			let line = *it;
+			if (line == "")
+			{
+				break;
+			}
+
+			let &mut row = shape.emplace_back();
+			for (let c in line.chars())
+			{
+				row.push_back(c == '#');
+			}
+		}
+	}
+
+	if (shapes.size() == 0)
+	{
+		unreachable;
+	}
+	let n = shapes[0].size();
+	for (let &shape in shapes)
+	{
+		if (shape.size() != n)
+		{
+			unreachable;
+		}
+		for (let &row in shape)
+		{
+			if (row.size() != n)
+			{
+				unreachable;
+			}
+		}
+	}
+
+	let mut trees = std::vector<[usize, usize, std::vector<usize>]>();
+	while (it != end)
+	{
+		defer ++it;
+		let line = *it;
+
+		let [shape, presents] = line.split(": ");
+		let [width, height] = shape.split('x');
+		let &mut tree = trees.emplace_back();
+		tree[0] = parse_int(usize, width);
+		tree[1] = parse_int(usize, height);
+		for (let count in presents.split_by(' '))
+		{
+			tree[2].push_back(parse_int(usize, count));
+		}
+		if (tree[2].size() != shapes.size())
+		{
+			unreachable;
+		}
+	}
+
+	let mut fit_count = 0;
+	for (let &tree in trees)
+	{
+		let mut needed_presents = tree[2];
+		let mut tree_shape = shape_t();
+		tree_shape.resize(tree[0]);
+		for (let &mut row in tree_shape)
+		{
+			row.resize(tree[1]);
+		}
+		if (fit_all_presents(tree_shape, shapes.as_slice(), needed_presents.as_slice(), 0, 0))
+		{
+			fit_count += 1;
+		}
+	}
+
+	return fit_count;
+}
+
+function main()
+{
+	let input = read_file("input.txt");
+	let input = input.as_str().by_line().collect();
+
+	let part1_result = part1(input.as_slice());
+	std::print("part 1: {}\n", part1_result);
+	std::print("part 2: free\n");
+}
